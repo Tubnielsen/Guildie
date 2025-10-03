@@ -5,9 +5,13 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "start": "node dist/index.js",
-    "dev": "ts-node --esm src/index.ts",
+    "dev": "prisma generate && ts-node --esm src/index.ts",
+    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -23,12 +27,14 @@
   },
   "homepage": "https://github.com/Tubnielsen/Guildie#readme",
   "dependencies": {
+    "@prisma/client": "^6.16.3",
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
     "axios": "^1.12.2",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "prisma": "^6.16.3",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {

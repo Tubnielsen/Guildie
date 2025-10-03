@@ -2,7 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import axios from 'axios';
 import dotenv from 'dotenv';
-import db from './db.js';
+import { database } from './prisma-db.js';
 
 // Load environment variables
 dotenv.config();
@@ -14,7 +14,6 @@ const PORT = process.env.PORT || 3000;
 const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || 'your_discord_client_id';
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || 'your_discord_client_secret';
 const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'http://localhost:3000/auth/discord/callback';
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
 
 app.use(express.json());
 
@@ -28,7 +27,7 @@ const authenticateToken = async (req: any, res: any, next: any) => {
   }
 
   try {
-    const result = await db.getUserWithSession(token);
+    const result = await database.getUserWithSession(token);
     if (!result) {
       return res.status(403).json({ error: 'Invalid or expired token' });
     }
@@ -93,25 +92,25 @@ app.post('/auth/discord/callback', async (req, res) => {
 
     const discordUser = userResponse.data;
 
-    // Create or update user in database
-    const user = await db.createOrUpdateUser(discordUser, tokens);
+    // Create or update user in database using Prisma
+    const user = await database.createOrUpdateUser(discordUser, tokens);
 
     // Create session token
     const sessionToken = crypto.randomBytes(32).toString('hex');
-    const session = await db.createSession(user.id, sessionToken);
+    const session = await database.createSession(user.id, sessionToken);
 
     res.json({
       message: 'Authentication successful',
       user: {
         id: user.id,
-        discord_id: user.discord_id,
+        discord_id: user.discordId,
         username: user.username,
         discriminator: user.discriminator,
         avatar: user.avatar,
         email: user.email,
       },
       session_token: sessionToken,
-      expires_at: session.expires_at
+      expires_at: Number(session.expiresAt)
     });
 
   } catch (error: any) {
@@ -128,13 +127,13 @@ app.get('/api/user/profile', authenticateToken, async (req: any, res) => {
   res.json({
     user: {
       id: req.user.id,
-      discord_id: req.user.discord_id,
+      discord_id: req.user.discordId,
       username: req.user.username,
       discriminator: req.user.discriminator,
       avatar: req.user.avatar,
       email: req.user.email,
-      created_at: req.user.created_at,
-      updated_at: req.user.updated_at
+      created_at: req.user.createdAt,
+      updated_at: req.user.updatedAt
     }
   });
 });
@@ -147,7 +146,7 @@ app.post('/auth/refresh', authenticateToken, async (req: any, res) => {
         client_id: DISCORD_CLIENT_ID,
         client_secret: DISCORD_CLIENT_SECRET,
         grant_type: 'refresh_token',
-        refresh_token: req.user.refresh_token,
+        refresh_token: req.user.refreshToken,
       }),
       {
         headers: {
@@ -157,11 +156,17 @@ app.post('/auth/refresh', authenticateToken, async (req: any, res) => {
     );
 
     const newTokens = refreshResponse.data;
-    await db.updateUserTokens(req.user.id, newTokens);
+    const expiresAt = BigInt(Date.now() + (newTokens.expires_in * 1000));
+    
+    await database.updateUserTokens(req.user.id, {
+      accessToken: newTokens.access_token,
+      refreshToken: newTokens.refresh_token,
+      expiresAt: expiresAt
+    });
 
     res.json({
       message: 'Tokens refreshed successfully',
-      expires_at: Date.now() + (newTokens.expires_in * 1000)
+      expires_at: Number(expiresAt)
     });
 
   } catch (error: any) {
@@ -176,11 +181,28 @@ app.post('/auth/refresh', authenticateToken, async (req: any, res) => {
 // Logout route
 app.post('/auth/logout', authenticateToken, async (req: any, res) => {
   try {
-    await db.deleteSession(req.session.session_token);
+    await database.deleteSession(req.session.sessionToken);
     res.json({ message: 'Logged out successfully' });
   } catch (error) {
     console.error('Logout error:', error);
     res.status(500).json({ error: 'Logout failed' });
+  }
+});
+
+// Admin/Stats routes (protected)
+app.get('/api/admin/stats', authenticateToken, async (req: any, res) => {
+  try {
+    const userCount = await database.getUserCount();
+    const activeSessionCount = await database.getActiveSessionCount();
+    
+    res.json({
+      total_users: userCount,
+      active_sessions: activeSessionCount,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Stats error:', error);
+    res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
 
@@ -197,12 +219,20 @@ app.listen(PORT, () => {
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down gracefully');
-  db.close();
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
   console.log('SIGINT received, shutting down gracefully');
-  db.close();
   process.exit(0);
 });
+
+// Clean up expired sessions every hour
+setInterval(async () => {
+  try {
+    await database.deleteExpiredSessions();
+    console.log('Cleaned up expired sessions');
+  } catch (error) {
+    console.error('Error cleaning up sessions:', error);
+  }
+}, 60 * 60 * 1000);
