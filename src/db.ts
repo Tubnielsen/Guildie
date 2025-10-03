@@ -153,6 +153,87 @@ export class PrismaDatabase {
     };
   }
 
+  // Character operations
+  async createCharacter(characterData: {
+    userId: number;
+    name: string;
+    class: string;
+    level?: number;
+    race?: string | null;
+    background?: string | null;
+    stats?: string | null;
+    description?: string | null;
+  }) {
+    return await prisma.character.create({
+      data: {
+        userId: characterData.userId,
+        name: characterData.name,
+        class: characterData.class,
+        level: characterData.level || 1,
+        race: characterData.race,
+        background: characterData.background,
+        stats: characterData.stats,
+        description: characterData.description,
+      },
+    });
+  }
+
+  async getCharactersByUserId(userId: number) {
+    return await prisma.character.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getCharacterById(characterId: number, userId: number) {
+    return await prisma.character.findFirst({
+      where: {
+        id: characterId,
+        userId: userId, // Ensure user can only access their own characters
+      },
+    });
+  }
+
+  async updateCharacter(characterId: number, userId: number, updateData: {
+    name?: string;
+    class?: string;
+    level?: number;
+    race?: string;
+    background?: string;
+    stats?: string;
+    description?: string;
+  }) {
+    return await prisma.character.updateMany({
+      where: {
+        id: characterId,
+        userId: userId, // Ensure user can only update their own characters
+      },
+      data: {
+        ...updateData,
+        updatedAt: new Date(),
+      },
+    }).then(async (result: any) => {
+      if (result.count === 0) return null;
+      return await this.getCharacterById(characterId, userId);
+    });
+  }
+
+  async deleteCharacter(characterId: number, userId: number) {
+    const result = await prisma.character.deleteMany({
+      where: {
+        id: characterId,
+        userId: userId, // Ensure user can only delete their own characters
+      },
+    });
+    return result.count > 0;
+  }
+
+  async getCharacterCount(userId?: number) {
+    return await prisma.character.count({
+      where: userId ? { userId } : undefined,
+    });
+  }
+
   // Utility methods
   async getUserCount() {
     return await prisma.user.count();

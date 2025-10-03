@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import axios from 'axios';
 import dotenv from 'dotenv';
 import { database } from './db.js';
+import charactersRouter from './routes/characters.js';
 
 // Load environment variables
 dotenv.config();
@@ -18,7 +19,7 @@ const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'http://localho
 app.use(express.json());
 
 // Middleware to authenticate requests
-const authenticateToken = async (req: any, res: any, next: any) => {
+export const authenticateToken = async (req: any, res: any, next: any) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -205,6 +206,9 @@ app.get('/api/admin/stats', authenticateToken, async (req: any, res) => {
     res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
+
+// API Routes
+app.use('/api/characters', charactersRouter);
 
 // Health check
 app.get('/health', (req, res) => {

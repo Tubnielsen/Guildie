@@ -25,6 +25,7 @@ model User {
   
   // Relations
   sessions     Session[]
+  characters   Character[]
   
   @@map("users")
 }
@@ -40,4 +41,23 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@map("sessions")
+}
+
+model Character {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  name        String
+  class       String
+  level       Int      @default(1)
+  race        String?
+  background  String?
+  stats       String?  // JSON string for character stats
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("characters")
 }
