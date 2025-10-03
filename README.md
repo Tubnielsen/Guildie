@@ -230,6 +230,68 @@ CREATE TABLE sessions (
 );
 ```
 
+### Characters Table
+```sql
+CREATE TABLE characters (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  name TEXT UNIQUE NOT NULL,
+  role TEXT CHECK(role IN ('DPS', 'TANK', 'HEALER')),
+  weapon1 TEXT,
+  weapon2 TEXT,
+  combat_power INTEGER,
+  gear_image_url TEXT,
+  active TEXT CHECK(active IN ('ACTIVE', 'NOT ACTIVE')) NOT NULL DEFAULT 'ACTIVE',
+  dkp INTEGER NOT NULL DEFAULT 0,
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+```
+
+### Events Table
+```sql
+CREATE TABLE events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  description TEXT,
+  start_time DATETIME NOT NULL,
+  end_time DATETIME NOT NULL,
+  dkp_reward INTEGER NOT NULL DEFAULT 0
+);
+```
+
+### Attendances Table
+```sql
+CREATE TABLE attendances (
+  event_id INTEGER,
+  character_id INTEGER,
+  FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+  FOREIGN KEY (character_id) REFERENCES characters (id) ON DELETE CASCADE,
+  PRIMARY KEY (event_id, character_id)
+);
+```
+
+### Items Table
+```sql
+CREATE TABLE items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT UNIQUE NOT NULL,
+  image_url TEXT,
+  min_dkp_cost INTEGER NOT NULL DEFAULT 1
+);
+```
+
+### Wishes Table
+```sql
+CREATE TABLE wishes (
+  character_id INTEGER,
+  item_id INTEGER,
+  FOREIGN KEY (character_id) REFERENCES characters (id) ON DELETE CASCADE,
+  FOREIGN KEY (item_id) REFERENCES items (id) ON DELETE CASCADE,
+  PRIMARY KEY (character_id, item_id)
+);
+```
+
+
 ## Error Handling
 
 The API returns appropriate HTTP status codes:
