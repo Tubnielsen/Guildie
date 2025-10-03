@@ -13,12 +13,9 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
 // Prevent creating multiple instances in development
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
-// Export types for TypeScript
-export type { User, Session } from '@prisma/client';
-
 // Custom types for API responses
-export type UserWithSessions = import('@prisma/client').User & {
-  sessions: import('@prisma/client').Session[];
+export type UserWithSessions = Awaited<ReturnType<typeof prisma.user.findUnique>> & {
+  sessions: Awaited<ReturnType<typeof prisma.session.findMany>>;
 };
 
 export type CreateUserData = {
@@ -110,16 +107,16 @@ export class PrismaDatabase {
 
   async getSessionByToken(sessionToken: string) {
     const now = BigInt(Date.now());
-    return await prisma.session.findUnique({
+    const session = await prisma.session.findUnique({
       where: { sessionToken },
       include: { user: true },
-    }).then(session => {
-      // Check if session is expired
-      if (session && session.expiresAt <= now) {
-        return null;
-      }
-      return session;
     });
+
+    // Check if session is expired
+    if (session && session.expiresAt <= now) {
+      return null;
+    }
+    return session;
   }
 
   async deleteSession(sessionToken: string) {

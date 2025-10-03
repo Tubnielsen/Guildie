@@ -2,7 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import axios from 'axios';
 import dotenv from 'dotenv';
-import { database } from './prisma-db.js';
+import { database } from './db.js';
 
 // Load environment variables
 dotenv.config();
