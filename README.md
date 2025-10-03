@@ -19,6 +19,11 @@ A TypeScript REST API that provides Discord OAuth2 authentication with SQLite da
 - Event planner to plan future events for the guild
 - Attendance Tracking to track attendance through the events from the event planner
 - DKP System; gain DKP points through attendance of events.
+- Custom Recruitment page with integrated survey tool, to allow outsiders to apply for the guild.
+- Admin/Officer tools like:
+  - Asking for gear and skill setup pictures
+  - Limiting amount of things to wishlist (can be limited per gear type ex. chest, ring etc.)
+  - Give out DKP, wishlist points and more manually to your members 
 - More to come!
 
 ## Setup
