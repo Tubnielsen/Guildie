@@ -1,15 +1,25 @@
-# Guildie - Discord Authentication REST API
+# Guildie - Guild Management REST API
 
-A TypeScript REST API that provides Discord OAuth2 authentication with SQLite database storage.
+A TypeScript REST API that provides Discord OAuth2 authentication with SQLite database storage, Guild management tools to manage your guild such as: member list, wishlist system, DKP system, event planning and attendance tracking.
 
 ## Features
 
+### Authentication through Discord
 - Discord OAuth2 authentication flow
 - SQLite database for user and session management
 - Session-based authentication with tokens
 - Token refresh functionality
 - Protected route middleware
 - Automatic session cleanup
+
+### Guild Management Tool Features
+- Individual character profile
+- Member listings for whole guild
+- Wishlist system for individual users using token system for limiting
+- Event planner to plan future events for the guild
+- Attendance Tracking to track attendance through the events from the event planner
+- DKP System; gain DKP points through attendance of events.
+- More to come!
 
 ## Setup
 
@@ -219,14 +229,6 @@ CREATE TABLE sessions (
   FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 ```
-
-## Security Considerations
-
-1. **Environment Variables:** Never commit `.env` file with real credentials
-2. **HTTPS:** Use HTTPS in production
-3. **Session Tokens:** Generated using crypto.randomBytes for security
-4. **Token Expiration:** Sessions expire automatically (default: 7 days)
-5. **CORS:** Configure CORS for your frontend domain in production
 
 ## Error Handling
 
