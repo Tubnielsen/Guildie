@@ -1,4 +1,6 @@
-# Guildie - Guild Management REST API
+# STILL UNDER DEVELOPMENT
+
+# Guildie - Guild Management REST API 
 
 A TypeScript REST API that provides Discord OAuth2 authentication with SQLite database storage, Guild management tools to manage your guild such as: member list, wishlist system, DKP system, event planning and attendance tracking.
 
