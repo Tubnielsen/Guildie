@@ -2,8 +2,16 @@ import express from 'express';
 import crypto from 'crypto';
 import axios from 'axios';
 import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
 import { database } from './db.js';
-import charactersRouter from './routes/characters.js';
+import { swaggerSpec } from './config/swagger.js';
+import characterRouter from './routes/character.js';
+import itemRouter from './routes/item.js';
+import wishRouter from './routes/wish.js';
+import eventRouter from './routes/event.js';
+import adminRouter from './routes/admin.js';
+import attendanceRouter from './routes/attendance.js';
+import { authenticateToken } from './middleware/auth.js';
 
 // Load environment variables
 dotenv.config();
@@ -18,31 +26,96 @@ const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'http://localho
 
 app.use(express.json());
 
-// Middleware to authenticate requests
-export const authenticateToken = async (req: any, res: any, next: any) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+// Swagger Documentation
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  explorer: true,
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Guildie API Documentation'
+}));
 
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
+// Swagger JSON endpoint
+app.get('/api/docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
 
-  try {
-    const result = await database.getUserWithSession(token);
-    if (!result) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
+/**
+ * @swagger
+ * /:
+ *   get:
+ *     summary: API Root endpoint
+ *     description: Returns basic API information and available endpoints
+ *     tags: [General]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: API information
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 name:
+ *                   type: string
+ *                   example: "Guildie API"
+ *                 version:
+ *                   type: string
+ *                   example: "1.0.0"
+ *                 description:
+ *                   type: string
+ *                   example: "Guild management REST API"
+ *                 documentation:
+ *                   type: string
+ *                   example: "/api/docs"
+ *                 endpoints:
+ *                   type: object
+ */
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Guildie API',
+    version: '1.0.0',
+    description: 'Guild management REST API with Discord authentication',
+    documentation: '/api/docs',
+    endpoints: {
+      authentication: '/auth/discord',
+      users: '/api/user/profile',
+      characters: '/api/character',
+      items: '/api/item',
+      events: '/api/event',
+      attendance: '/api/attendance',
+      wishes: '/api/wish',
+      admin: '/api/admin'
     }
-
-    req.user = result.user;
-    req.session = result.session;
-    next();
-  } catch (error) {
-    console.error('Authentication error:', error);
-    return res.status(403).json({ error: 'Invalid token' });
-  }
-};
+  });
+});
 
 // Discord OAuth2 routes
+
+/**
+ * @swagger
+ * /auth/discord:
+ *   get:
+ *     summary: Get Discord OAuth URL
+ *     description: Returns the Discord OAuth2 authorization URL for user authentication
+ *     tags: [Authentication]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Discord OAuth URL generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 auth_url:
+ *                   type: string
+ *                   description: Discord OAuth2 authorization URL
+ *                   example: "https://discord.com/api/oauth2/authorize?client_id=..."
+ *                 state:
+ *                   type: string
+ *                   description: CSRF protection state parameter
+ *                   example: "abc123def456"
+ */
 app.get('/auth/discord', (req, res) => {
   const state = crypto.randomBytes(16).toString('hex');
   const discordAuthUrl = `https://discord.com/api/oauth2/authorize?` +
@@ -58,6 +131,61 @@ app.get('/auth/discord', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /auth/discord/callback:
+ *   post:
+ *     summary: Discord OAuth callback
+ *     description: Process the Discord OAuth2 callback and create user session
+ *     tags: [Authentication]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - code
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 description: Authorization code from Discord
+ *                 example: "abc123def456"
+ *               state:
+ *                 type: string
+ *                 description: State parameter for CSRF protection
+ *                 example: "xyz789"
+ *     responses:
+ *       200:
+ *         description: Authentication successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Authentication successful"
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *                 session_token:
+ *                   type: string
+ *                   description: Session token for API authentication
+ *                   example: "sess_abc123def456..."
+ *                 expires_at:
+ *                   type: integer
+ *                   description: Session expiration timestamp
+ *                   example: 1697123456789
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       500:
+ *         description: Authentication failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 app.post('/auth/discord/callback', async (req, res) => {
   const { code, state } = req.body;
 
@@ -123,7 +251,30 @@ app.post('/auth/discord/callback', async (req, res) => {
   }
 });
 
-// Protected route example
+/**
+ * @swagger
+ * /api/user/profile:
+ *   get:
+ *     summary: Get user profile
+ *     description: Retrieve the authenticated user's profile information
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ */
 app.get('/api/user/profile', authenticateToken, async (req: any, res) => {
   res.json({
     user: {
@@ -190,8 +341,8 @@ app.post('/auth/logout', authenticateToken, async (req: any, res) => {
   }
 });
 
-// Admin/Stats routes (protected)
-app.get('/api/admin/stats', authenticateToken, async (req: any, res) => {
+// Basic stats route (public)
+app.get('/api/stats', async (req, res) => {
   try {
     const userCount = await database.getUserCount();
     const activeSessionCount = await database.getActiveSessionCount();
@@ -208,9 +359,36 @@ app.get('/api/admin/stats', authenticateToken, async (req: any, res) => {
 });
 
 // API Routes
-app.use('/api/characters', charactersRouter);
+app.use('/api/character', characterRouter);
+app.use('/api/item', itemRouter);
+app.use('/api/wish', wishRouter);
+app.use('/api/event', eventRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/attendance', attendanceRouter);
 
-// Health check
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Health check endpoint
+ *     description: Check if the API server is running and healthy
+ *     tags: [General]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Server is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "OK"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ */
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });

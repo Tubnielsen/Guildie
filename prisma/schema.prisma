@@ -17,6 +17,7 @@ model User {
   discriminator String   @default("0")
   avatar       String?
   email        String?
+  role         UserRole  @default(MEMBER)
   accessToken  String    @map("access_token")
   refreshToken String    @map("refresh_token")
   expiresAt    BigInt    @map("expires_at")
@@ -43,21 +44,89 @@ model Session {
   @@map("sessions")
 }
 
+enum CharacterRole {
+  DPS
+  TANK
+  HEALER
+}
+
+enum CharacterStatus {
+  ACTIVE      @map("ACTIVE")
+  NOT_ACTIVE  @map("NOT ACTIVE")
+}
+
+enum UserRole {
+  MEMBER
+  OFFICER
+  ADMIN
+}
+
 model Character {
-  id          Int      @id @default(autoincrement())
-  userId      Int      @map("user_id")
-  name        String
-  class       String
-  level       Int      @default(1)
-  race        String?
-  background  String?
-  stats       String?  // JSON string for character stats
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id            Int              @id @default(autoincrement())
+  userId        Int              @map("user_id")
+  name          String           @unique
+  role          CharacterRole?
+  weapon1       String?
+  weapon2       String?
+  combatPower   Int?             @map("combat_power")
+  gearImageUrl  String?          @map("gear_image_url")
+  active        CharacterStatus  @default(ACTIVE)
+  dkp           Int              @default(0)
   
   // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attendances   Attendance[]
+  wishes        Wish[]
   
   @@map("characters")
+}
+
+model Event {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  startTime   DateTime @map("start_time")
+  endTime     DateTime @map("end_time")
+  dkpReward   Int      @default(0) @map("dkp_reward")
+  
+  // Relations
+  attendances Attendance[]
+  
+  @@map("events")
+}
+
+model Attendance {
+  eventId     Int @map("event_id")
+  characterId Int @map("character_id")
+  
+  // Relations
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  
+  @@id([eventId, characterId])
+  @@map("attendances")
+}
+
+model Item {
+  id         Int    @id @default(autoincrement())
+  name       String @unique
+  imageUrl   String? @map("image_url")
+  minDkpCost Int    @default(1) @map("min_dkp_cost")
+  
+  // Relations
+  wishes     Wish[]
+  
+  @@map("items")
+}
+
+model Wish {
+  characterId Int @map("character_id")
+  itemId      Int @map("item_id")
+  
+  // Relations
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  item        Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  
+  @@id([characterId, itemId])
+  @@map("wishes")
 }
